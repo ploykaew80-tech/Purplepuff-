@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Settings can be read by public and updated by admins
+    match /settings/{document=**} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Store root document and subdocuments (e.g. store/products, store/settings)
+    match /store/{document=**} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Categories
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Products
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Promotions
+    match /promotions/{promoId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Orders
+    match /orders/{orderId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if true;
+    }
+
+    // Users
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Activity Logs
+    match /activity_logs/{logId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}

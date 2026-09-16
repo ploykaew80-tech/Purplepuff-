@@ -1,0 +1,155 @@
+{
+  "entities": {
+    "settings": {
+      "title": "StoreSettings",
+      "description": "Store configuration, opening hours, contact information and branding",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "store_name": { "type": "string" },
+        "logo_url": { "type": "string" },
+        "banner_url": { "type": "string" },
+        "description": { "type": "string" },
+        "opening_time": { "type": "string" },
+        "closing_time": { "type": "string" },
+        "contact": { "type": "string" },
+        "line_username": { "type": "string" },
+        "instagram_username": { "type": "string" },
+        "delivery_available": { "type": "boolean" },
+        "facebook": { "type": "string" },
+        "google_maps": { "type": "string" },
+        "location_address": { "type": "string" },
+        "store_policies": { "type": "string" },
+        "updated_at": { "type": "string" }
+      },
+      "required": ["store_name"]
+    },
+    "categories": {
+      "title": "Category",
+      "description": "Product category definition",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "icon": { "type": "string" },
+        "description": { "type": "string" },
+        "display_order": { "type": "number" },
+        "status": { "type": "string" },
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "products": {
+      "title": "Product",
+      "description": "Dispensary product item with strains, effects, and pricing",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "product_name": { "type": "string" },
+        "category_id": { "type": "string" },
+        "type": { "type": "string" },
+        "description": { "type": "string" },
+        "effect_1": { "type": "string" },
+        "effect_2": { "type": "string" },
+        "effect_3": { "type": "string" },
+        "price": { "type": "number" },
+        "image_url": { "type": "string" },
+        "status": { "type": "string" },
+        "featured": { "type": "boolean" },
+        "display_order": { "type": "number" },
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" }
+      },
+      "required": ["id", "product_name", "price", "category_id"]
+    },
+    "promotions": {
+      "title": "Promotion",
+      "description": "Store banners and seasonal promotions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "image_url": { "type": "string" },
+        "status": { "type": "string" },
+        "display_order": { "type": "number" }
+      },
+      "required": ["id", "title"]
+    },
+    "orders": {
+      "title": "Order",
+      "description": "Customer order submitted through the storefront",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customer_name": { "type": "string" },
+        "customer_phone": { "type": "string" },
+        "delivery_address": { "type": "string" },
+        "total_amount": { "type": "number" },
+        "status": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["customer_name", "customer_phone"]
+    },
+    "users": {
+      "title": "User",
+      "description": "Admin and staff user accounts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["email", "name"]
+    },
+    "activity_logs": {
+      "title": "ActivityLog",
+      "description": "Audit trail of admin and store operations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "action": { "type": "string" },
+        "user_name": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["action", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/store/{storeDocId}": {
+      "schema": "settings",
+      "description": "Unified store documents including products list and settings"
+    },
+    "/settings/{settingId}": {
+      "schema": "settings",
+      "description": "Store settings and configurations"
+    },
+    "/categories/{categoryId}": {
+      "schema": "categories",
+      "description": "Product categories"
+    },
+    "/products/{productId}": {
+      "schema": "products",
+      "description": "Products available in the store"
+    },
+    "/promotions/{promoId}": {
+      "schema": "promotions",
+      "description": "Special promotions and campaigns"
+    },
+    "/orders/{orderId}": {
+      "schema": "orders",
+      "description": "Customer order submissions"
+    },
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "Admin and staff users"
+    },
+    "/activity_logs/{logId}": {
+      "schema": "activity_logs",
+      "description": "System activity logs"
+    }
+  }
+}
