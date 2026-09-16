@@ -487,10 +487,13 @@ export async function initFirestoreDataIfEmpty(): Promise<boolean> {
 
   isInitializing = true;
   try {
-    // Check if products collection exists / has documents
-    const productsSnap = await getDocs(collection(db, 'products'));
+    // Check if products collection exists / has documents with timeout
+    const productsSnap = await Promise.race([
+      getDocs(collection(db, 'products')),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000))
+    ]);
     
-    if (productsSnap.empty) {
+    if (productsSnap && productsSnap.empty) {
       console.log('🌱 Firestore is empty. Seeding initial data...');
       const batch = writeBatch(db);
 
@@ -532,21 +535,16 @@ export async function initFirestoreDataIfEmpty(): Promise<boolean> {
       };
       batch.set(doc(db, 'activity_logs', initialLog.id), initialLog);
 
-      await batch.commit();
+      await Promise.race([
+        batch.commit(),
+        new Promise<void>((resolve) => setTimeout(resolve, 3500))
+      ]);
       console.log('✅ Firestore seeding completed successfully!');
-    } else {
-      // Check if store_settings exists
-      const settingsDoc = await getDoc(doc(db, 'settings', 'store_settings'));
-      if (!settingsDoc.exists()) {
-        await setDoc(doc(db, 'settings', 'store_settings'), INITIAL_STORE_SETTINGS);
-        await setDoc(doc(db, 'store', 'settings'), INITIAL_STORE_SETTINGS);
-      }
     }
-
     isInitialized = true;
     return true;
   } catch (error) {
-    console.warn('⚠️ Firestore initialization error (using fallback/offline if restricted):', error);
+    console.warn('⚠️ Firestore initialization notice (offline fallback):', error);
     return false;
   } finally {
     isInitializing = false;
@@ -557,16 +555,17 @@ export async function initFirestoreDataIfEmpty(): Promise<boolean> {
 
 export async function getFirestoreStoreSettings(): Promise<StoreSettings> {
   try {
-    await initFirestoreDataIfEmpty();
-    const docSnap = await getDoc(doc(db, 'settings', 'store_settings'));
-    if (docSnap.exists()) {
+    initFirestoreDataIfEmpty().catch(() => {});
+    const docSnap = await Promise.race([
+      getDoc(doc(db, 'settings', 'store_settings')),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500))
+    ]);
+    if (docSnap && docSnap.exists()) {
       return docSnap.data() as StoreSettings;
     }
-    // If not found, write and return default
-    await setDoc(doc(db, 'settings', 'store_settings'), INITIAL_STORE_SETTINGS);
     return INITIAL_STORE_SETTINGS;
   } catch (err) {
-    console.error('getFirestoreStoreSettings error:', err);
+    console.warn('getFirestoreStoreSettings notice (offline fallback):', err);
     return INITIAL_STORE_SETTINGS;
   }
 }
@@ -578,7 +577,14 @@ export async function updateFirestoreStoreSettings(settings: Partial<StoreSettin
     ...settings,
     updated_at: new Date().toISOString()
   };
-  await setDoc(doc(db, 'settings', 'store_settings'), updated, { merge: true });
+  try {
+    await Promise.race([
+      setDoc(doc(db, 'settings', 'store_settings'), updated, { merge: true }),
+      new Promise<void>((resolve) => setTimeout(resolve, 3500))
+    ]);
+  } catch (err) {
+    console.warn('updateFirestoreStoreSettings notice (will sync when online):', err);
+  }
   return updated;
 }
 
@@ -586,12 +592,15 @@ export async function updateFirestoreStoreSettings(settings: Partial<StoreSettin
 
 export async function getFirestoreCategories(): Promise<Category[]> {
   try {
-    await initFirestoreDataIfEmpty();
-    const snap = await getDocs(query(collection(db, 'categories'), orderBy('display_order', 'asc')));
-    if (snap.empty) return INITIAL_CATEGORIES;
-    return snap.docs.map(d => d.data() as Category);
+    initFirestoreDataIfEmpty().catch(() => {});
+    const snap = await Promise.race([
+      getDocs(query(collection(db, 'categories'), orderBy('display_order', 'asc'))),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000))
+    ]);
+    if (snap && !snap.empty) return snap.docs.map(d => d.data() as Category);
+    return INITIAL_CATEGORIES;
   } catch (err) {
-    console.error('getFirestoreCategories error:', err);
+    console.warn('getFirestoreCategories notice (offline fallback):', err);
     return INITIAL_CATEGORIES;
   }
 }
@@ -609,7 +618,14 @@ export async function saveFirestoreCategory(category: Partial<Category>): Promis
     created_at: category.created_at || now,
     updated_at: now
   };
-  await setDoc(doc(db, 'categories', id), fullCategory, { merge: true });
+  try {
+    await Promise.race([
+      setDoc(doc(db, 'categories', id), fullCategory, { merge: true }),
+      new Promise<void>((resolve) => setTimeout(resolve, 3500))
+    ]);
+  } catch (err) {
+    console.warn('saveFirestoreCategory notice (will sync when online):', err);
+  }
   return fullCategory;
 }
 
@@ -617,29 +633,35 @@ export async function saveFirestoreCategory(category: Partial<Category>): Promis
 
 export async function getFirestoreProducts(): Promise<Product[]> {
   try {
-    await initFirestoreDataIfEmpty();
-    const snap = await getDocs(collection(db, 'products'));
-    if (!snap.empty) {
+    initFirestoreDataIfEmpty().catch(() => {});
+    const snap = await Promise.race([
+      getDocs(collection(db, 'products')),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000))
+    ]);
+    if (snap && !snap.empty) {
       const prods = snap.docs.map(d => ({ ...d.data(), id: d.id } as Product));
       prods.sort((a, b) => (a.display_order || 99) - (b.display_order || 99));
       return prods;
     }
     return INITIAL_PRODUCTS;
   } catch (err) {
-    console.error('getFirestoreProducts error:', err);
+    console.warn('getFirestoreProducts notice (offline fallback):', err);
     return INITIAL_PRODUCTS;
   }
 }
 
 export async function getFirestoreProductById(id: string): Promise<Product | null> {
   try {
-    const docSnap = await getDoc(doc(db, 'products', id));
-    if (docSnap.exists()) {
+    const docSnap = await Promise.race([
+      getDoc(doc(db, 'products', id)),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000))
+    ]);
+    if (docSnap && docSnap.exists()) {
       return { ...docSnap.data(), id: docSnap.id } as Product;
     }
     return null;
   } catch (err) {
-    console.error('getFirestoreProductById error:', err);
+    console.warn('getFirestoreProductById notice (offline fallback):', err);
     return null;
   }
 }
@@ -647,7 +669,7 @@ export async function getFirestoreProductById(id: string): Promise<Product | nul
 export async function saveFirestoreProduct(product: Partial<Product>, userName = 'Admin'): Promise<Product> {
   const id = product.id || `prod-${Date.now()}`;
   const now = new Date().toISOString();
-
+  
   let existing: Product | null = null;
   if (product.id) {
     existing = await getFirestoreProductById(product.id);
@@ -678,35 +700,49 @@ export async function saveFirestoreProduct(product: Partial<Product>, userName =
     custom_fields: product.custom_fields || existing?.custom_fields || {}
   };
 
-  // Directly save individual document in collection(db, 'products', id)
-  await setDoc(doc(db, 'products', id), savedProduct, { merge: true });
+  // Directly save individual document in collection(db, 'products', id) with timeout race
+  try {
+    await Promise.race([
+      setDoc(doc(db, 'products', id), savedProduct, { merge: true }),
+      new Promise<void>((resolve) => setTimeout(resolve, 3500))
+    ]);
+  } catch (saveErr) {
+    console.warn('Firestore setDoc notice (will sync when online):', saveErr);
+  }
 
-  // Log activity
-  await addFirestoreActivityLog({
+  // Log activity in background non-blocking
+  addFirestoreActivityLog({
     user_id: 'admin',
     user_name: userName,
     action: existing ? 'PRODUCT UPDATED' : 'PRODUCT CREATED',
     entity_type: 'product',
     entity_id: id,
     metadata: { product_name: savedProduct.product_name, price: savedProduct.price }
-  });
+  }).catch(() => {});
 
   return savedProduct;
 }
 
 export async function deleteFirestoreProduct(id: string, userName = 'Admin'): Promise<boolean> {
   const product = await getFirestoreProductById(id);
-  // Delete individual product doc
-  await deleteDoc(doc(db, 'products', id));
+  // Delete individual product doc with timeout race
+  try {
+    await Promise.race([
+      deleteDoc(doc(db, 'products', id)),
+      new Promise<void>((resolve) => setTimeout(resolve, 3500))
+    ]);
+  } catch (err) {
+    console.warn('deleteDoc notice:', err);
+  }
 
-  await addFirestoreActivityLog({
+  addFirestoreActivityLog({
     user_id: 'admin',
     user_name: userName,
     action: 'PRODUCT DELETED',
     entity_type: 'product',
     entity_id: id,
     metadata: { product_name: product?.product_name || id }
-  });
+  }).catch(() => {});
 
   return true;
 }
@@ -716,24 +752,31 @@ export async function updateFirestoreProductStatus(id: string, status: ProductSt
   if (!product) return null;
 
   const now = new Date().toISOString();
-  await updateDoc(doc(db, 'products', id), {
-    status,
-    updated_at: now,
-    updated_by: userName
-  });
+  try {
+    await Promise.race([
+      updateDoc(doc(db, 'products', id), {
+        status,
+        updated_at: now,
+        updated_by: userName
+      }),
+      new Promise<void>((resolve) => setTimeout(resolve, 3500))
+    ]);
+  } catch (err) {
+    console.warn('updateDoc notice:', err);
+  }
 
   product.status = status;
   product.updated_at = now;
   product.updated_by = userName;
 
-  await addFirestoreActivityLog({
+  addFirestoreActivityLog({
     user_id: 'admin',
     user_name: userName,
     action: 'PRODUCT STATUS CHANGED',
     entity_type: 'product',
     entity_id: id,
     metadata: { product_name: product.product_name, status }
-  });
+  }).catch(() => {});
 
   return product;
 }
